@@ -31,7 +31,7 @@ export interface ProcessedFile {
   name: string;
   originalSize: number;
   originalUrl: string;
-  status: "pending" | "processing" | "done" | "error";
+  status: "pending" | "decoding" | "processing" | "done" | "error";
   settings: ConversionSettings;
   optimizedSize?: number;
   optimizedUrl?: string;
@@ -182,24 +182,60 @@ export default function ImageConverter() {
     }
   };
 
-  const handleFiles = (incomingFiles: FileList | File[]) => {
-    const validFiles = Array.from(incomingFiles).filter((f) => f.type.startsWith("image/"));
+  const handleFiles = async (incomingFiles: FileList | File[]) => {
+    const validFiles = Array.from(incomingFiles).filter((f) => f.type.startsWith("image/") || f.name.toLowerCase().endsWith(".heic") || f.name.toLowerCase().endsWith(".heif"));
     if (validFiles.length === 0) {
-      alert("Por favor, selecciona imágenes válidas en formato PNG, JPG o JPEG.");
+      alert("Por favor, selecciona imágenes válidas (WebP, PNG, JPG o HEIC/HEIF).");
       return;
     }
 
-    const newProcessedFiles: ProcessedFile[] = validFiles.map((file) => ({
+    // Add them immediately as pending to show UI feedback
+    const placeholderFiles = validFiles.map((file) => ({
       id: Math.random().toString(36).substring(2, 9),
       file: file,
       name: file.name,
       originalSize: file.size,
-      originalUrl: URL.createObjectURL(file), 
-      status: "pending",
+      originalUrl: "", 
+      status: "pending" as ProcessedFile['status'],
       settings: { ...globalSettings }, 
     }));
+    setFiles((prev) => [...prev, ...placeholderFiles]);
 
-    setFiles((prev) => [...prev, ...newProcessedFiles]);
+    // Asynchronously decode HEIC/HEIF and create Blob URLs
+    for (const fObj of placeholderFiles) {
+      const file = fObj.file;
+      const isHeic = file.name.toLowerCase().endsWith(".heic") || file.name.toLowerCase().endsWith(".heif");
+      let finalFile = file;
+      let originalUrl = "";
+
+      if (isHeic) {
+        setFiles(prev => prev.map(f => f.id === fObj.id ? { ...f, status: "decoding" as const } : f));
+        try {
+          // Dynamic import
+          const heic2any = (await import("heic2any")).default;
+          const convertedBlob = await heic2any({
+            blob: file,
+            toType: "image/jpeg",
+          });
+          // convert blob back to File
+          const finalBlob = Array.isArray(convertedBlob) ? convertedBlob[0] : convertedBlob;
+          finalFile = new File([finalBlob], file.name.replace(/\.heic|\.heif/i, ".jpg"), { type: "image/jpeg" });
+          originalUrl = URL.createObjectURL(finalFile);
+        } catch (e) {
+          setFiles(prev => prev.map(f => f.id === fObj.id ? { ...f, status: "error", errorMsg: "Fallo al decodificar HEIC" } : f));
+          continue;
+        }
+      } else {
+        originalUrl = URL.createObjectURL(file);
+      }
+
+      setFiles(prev => prev.map(f => {
+        if (f.id === fObj.id) {
+          return { ...f, file: finalFile, originalUrl, status: "pending", name: finalFile.name, originalSize: finalFile.size };
+        }
+        return f;
+      }));
+    }
   };
 
   const updateFileSettings = (id: string, newSettings: Partial<ConversionSettings>) => {
@@ -292,30 +328,30 @@ export default function ImageConverter() {
       {/* SIDEBAR: PANEL DE AJUSTES GLOBALES */}
       {files.length > 0 && (
         <aside className="w-full xl:w-[280px] shrink-0 h-fit flex flex-col gap-6 relative xl:sticky xl:top-[88px] z-10">
-          <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl overflow-hidden shadow-sm transition-colors">
-            <div className="px-4 py-3 border-b border-zinc-100 dark:border-zinc-800 flex items-center gap-2 bg-zinc-50/50 dark:bg-zinc-800/50">
-              <Settings2 className="w-4 h-4 text-zinc-500 dark:text-zinc-400" />
-              <h2 className="text-xs font-semibold text-zinc-900 dark:text-zinc-50 uppercase tracking-widest">Ajustes Rápidos</h2>
+          <div className="bg-[var(--surface)] border border-[var(--surface-border)] rounded-[20px] overflow-hidden shadow-[0_8px_30px_rgb(0,0,0,0.04)] dark:shadow-[0_8px_30px_rgb(0,0,0,0.2)] transition-colors">
+            <div className="px-5 py-4 border-b border-[var(--surface-border)] flex items-center gap-2 bg-[var(--background)]">
+              <Settings2 className="w-[18px] h-[18px] text-[#86868b]" />
+              <h2 className="text-[13px] font-semibold text-[var(--foreground)] tracking-tight">Ajustes Rápidos</h2>
             </div>
 
-            <div className="p-4 flex flex-col gap-5">
+            <div className="p-5 flex flex-col gap-5">
               {/* Optimización Rapida */}
               <div>
-                <label className="text-[10px] font-semibold text-zinc-500 uppercase tracking-widest mb-1.5 block">Nivel Visual</label>
-                <div className="flex bg-zinc-100 rounded-md p-0.5 border border-zinc-200/50">
-                  <button onClick={() => setGlobalSettings(s => ({...s, format: 'image/webp', quality: 90}))} className="flex-1 px-2 py-1.5 text-[11px] font-medium rounded-[4px] border border-transparent hover:text-zinc-900 text-zinc-500 transition-all focus:bg-white focus:shadow-sm focus:border-zinc-200 focus:text-blue-600">Premium</button>
-                  <button onClick={() => setGlobalSettings(s => ({...s, format: 'image/webp', quality: 75}))} className="flex-1 px-2 py-1.5 text-[11px] font-medium rounded-[4px] border border-transparent hover:text-zinc-900 text-zinc-500 transition-all focus:bg-white focus:shadow-sm focus:border-zinc-200 focus:text-blue-600">Balance</button>
-                  <button onClick={() => setGlobalSettings(s => ({...s, format: 'image/webp', quality: 50}))} className="flex-1 px-2 py-1.5 text-[11px] font-medium rounded-[4px] border border-transparent hover:text-zinc-900 text-zinc-500 transition-all focus:bg-white focus:shadow-sm focus:border-zinc-200 focus:text-blue-600">Ligero</button>
+                <label className="text-[11px] font-medium text-[#86868b] tracking-wide mb-2 block">Nivel Visual</label>
+                <div className="flex bg-[var(--background)] rounded-lg p-1 border border-[var(--surface-border)]">
+                  <button onClick={() => setGlobalSettings(s => ({...s, format: 'image/webp', quality: 90}))} className={`flex-1 px-2 py-1.5 text-[12px] font-medium rounded-md transition-all ${globalSettings.quality >= 90 ? 'bg-[var(--surface)] shadow-sm text-foreground' : 'text-[#86868b] hover:text-[var(--foreground)]'}`}>Premium</button>
+                  <button onClick={() => setGlobalSettings(s => ({...s, format: 'image/webp', quality: 75}))} className={`flex-1 px-2 py-1.5 text-[12px] font-medium rounded-md transition-all ${(globalSettings.quality < 90 && globalSettings.quality > 50) ? 'bg-[var(--surface)] shadow-sm text-foreground' : 'text-[#86868b] hover:text-[var(--foreground)]'}`}>Balance</button>
+                  <button onClick={() => setGlobalSettings(s => ({...s, format: 'image/webp', quality: 50}))} className={`flex-1 px-2 py-1.5 text-[12px] font-medium rounded-md transition-all ${globalSettings.quality <= 50 ? 'bg-[var(--surface)] shadow-sm text-foreground' : 'text-[#86868b] hover:text-[var(--foreground)]'}`}>Ligero</button>
                 </div>
               </div>
 
               {/* Controles de Formulario Densos */}
-              <div className="space-y-4">
+              <div className="space-y-5">
                 <div>
-                  <label className="text-[10px] font-semibold text-zinc-500 uppercase tracking-widest mb-1.5 block">Formato de Salida</label>
+                  <label className="text-[11px] font-medium text-[#86868b] tracking-wide mb-2 block">Formato de Salida</label>
                   <select 
                     value={globalSettings.format} onChange={e => setGlobalSettings(s => ({...s, format: e.target.value as any}))}
-                    className="w-full bg-white border border-zinc-200 text-zinc-800 text-xs rounded-md px-2.5 py-1.5 outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 shadow-sm"
+                    className="w-full bg-[var(--background)] border border-[var(--surface-border)] text-[var(--foreground)] font-medium text-[13px] rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-[#0066cc]/30 focus:border-[#0066cc] dark:focus:ring-[#2997ff]/30 dark:focus:border-[#2997ff] transition-colors"
                   >
                     <option value="image/webp">A WebP (Recomendado)</option>
                     <option value="image/jpeg">A JPEG (Clásico)</option>
@@ -324,27 +360,27 @@ export default function ImageConverter() {
                 </div>
 
                 <div>
-                  <div className="flex justify-between items-end mb-1.5">
-                    <label className="text-[10px] font-semibold text-zinc-500 uppercase tracking-widest">
-                      Calidad {globalSettings.format === 'image/png' && <span className="text-red-400 font-bold lowercase"> (No aplica a png)</span>}
+                  <div className="flex justify-between items-end mb-2">
+                    <label className="text-[11px] font-medium text-[#86868b] tracking-wide">
+                      Calidad {globalSettings.format === 'image/png' && <span className="text-[#ff3b30] font-medium text-[10px]"> (No aplica)</span>}
                     </label>
-                    <span className={`text-[10px] font-semibold bg-blue-50/50 px-1.5 rounded ${globalSettings.format === 'image/png' ? 'text-zinc-400' : 'text-blue-600'}`}>{globalSettings.quality}%</span>
+                    <span className={`text-[12px] font-semibold bg-[var(--background)] px-2 py-0.5 rounded-md ${globalSettings.format === 'image/png' ? 'text-[#86868b]' : 'text-[#0066cc] dark:text-[#2997ff]'}`}>{globalSettings.quality}%</span>
                   </div>
                   <input 
                     type="range" min="1" max="100" value={globalSettings.quality} onChange={e => setGlobalSettings(s => ({...s, quality: parseInt(e.target.value, 10)}))}
                     disabled={globalSettings.format === 'image/png'}
-                    className={`w-full h-1 rounded-lg appearance-none ${globalSettings.format === 'image/png' ? 'bg-zinc-100 accent-zinc-300 cursor-not-allowed' : 'bg-zinc-200 accent-blue-600 cursor-pointer'}`}
+                    className={`w-full h-1.5 rounded-full appearance-none ${globalSettings.format === 'image/png' ? 'bg-[var(--surface-border)] accent-[#86868b] cursor-not-allowed' : 'bg-[var(--surface-border)] accent-[#0066cc] dark:accent-[#2997ff] cursor-pointer'}`}
                   />
-                  {globalSettings.format === 'image/png' && <p className="text-[9px] text-zinc-400 mt-1">El formato PNG no usa compresión con pérdida. Para reducir su peso severamente, cambia la resolución o usa WebP.</p>}
+                  {globalSettings.format === 'image/png' && <p className="text-[11px] text-[#86868b] mt-1.5 leading-tight tracking-tight">PNG no usa pérdida. Para reducir peso, cambia la resolución.</p>}
                 </div>
 
                 <div>
-                  <label className="text-[10px] font-semibold dark:text-zinc-400 text-zinc-500 uppercase tracking-widest mb-1.5 block">Tamaño Máximo</label>
+                  <label className="text-[11px] font-medium text-[#86868b] tracking-wide mb-2 block">Tamaño Máximo</label>
                   <select 
                     value={globalSettings.resizeMode} onChange={e => setGlobalSettings(s => ({...s, resizeMode: e.target.value as any}))}
-                    className="w-full bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 text-zinc-800 dark:text-zinc-200 text-xs rounded-md px-2.5 py-1.5 outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 shadow-sm transition-colors"
+                    className="w-full bg-[var(--background)] border border-[var(--surface-border)] text-[var(--foreground)] font-medium text-[13px] rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-[#0066cc]/30 focus:border-[#0066cc] dark:focus:ring-[#2997ff]/30 dark:focus:border-[#2997ff] transition-colors"
                   >
-                    <option value="original">Org. Conservar tamaño</option>
+                    <option value="original">Original</option>
                     <option value="1080p">HD Max 1920x1080</option>
                     <option value="720p">MD Max 1280x720</option>
                     <option value="custom">Personalizado</option>
@@ -352,19 +388,19 @@ export default function ImageConverter() {
 
                   {globalSettings.resizeMode === 'custom' && (
                     <div className="flex gap-2 mt-2">
-                       <input type="number" placeholder="Ancho px" value={globalSettings.customWidth || ''} onChange={e => setGlobalSettings(s => ({...s, customWidth: Number(e.target.value)}))} className="w-1/2 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 text-zinc-800 dark:text-zinc-200 text-xs rounded-md px-2 py-1.5 outline-none focus:border-blue-500" />
-                       <input type="number" placeholder="Alto px" value={globalSettings.customHeight || ''} onChange={e => setGlobalSettings(s => ({...s, customHeight: Number(e.target.value)}))} className="w-1/2 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 text-zinc-800 dark:text-zinc-200 text-xs rounded-md px-2 py-1.5 outline-none focus:border-blue-500" />
+                       <input type="number" placeholder="Ancho" value={globalSettings.customWidth || ''} onChange={e => setGlobalSettings(s => ({...s, customWidth: Number(e.target.value)}))} className="w-1/2 bg-[var(--background)] border border-[var(--surface-border)] text-[var(--foreground)] font-medium text-[13px] rounded-lg px-2.5 py-2 outline-none focus:ring-2 focus:ring-[#0066cc]/30 focus:border-[#0066cc] dark:focus:ring-[#2997ff]/30 dark:focus:border-[#2997ff]" />
+                       <input type="number" placeholder="Alto" value={globalSettings.customHeight || ''} onChange={e => setGlobalSettings(s => ({...s, customHeight: Number(e.target.value)}))} className="w-1/2 bg-[var(--background)] border border-[var(--surface-border)] text-[var(--foreground)] font-medium text-[13px] rounded-lg px-2.5 py-2 outline-none focus:ring-2 focus:ring-[#0066cc]/30 focus:border-[#0066cc] dark:focus:ring-[#2997ff]/30 dark:focus:border-[#2997ff]" />
                     </div>
                   )}
                 </div>
               </div>
 
-              <div className="pt-2 border-t border-zinc-100">
+              <div className="pt-3 mt-1 border-t border-[var(--surface-border)]">
                 <button 
                   onClick={applyGlobalSettingsToAll}
-                  className="w-full py-2 bg-white hover:bg-zinc-50 text-blue-600 font-bold text-xs rounded-md transition-all flex justify-center items-center gap-1.5 border border-zinc-200 shadow-sm"
+                  className="w-full py-2 bg-[var(--background)] hover:opacity-80 text-[#0066cc] dark:text-[#2997ff] font-medium text-[13px] rounded-lg transition-opacity flex justify-center items-center gap-1.5"
                 >
-                  <ListRestart className="w-3.5 h-3.5" /> Aplicar a Sin Procesar
+                  <ListRestart className="w-[14px] h-[14px]" /> Aplicar a Pendientes
                 </button>
               </div>
             </div>
@@ -373,9 +409,9 @@ export default function ImageConverter() {
           {(pendingCount > 0) && (
             <button 
               onClick={processAllPending}
-              className="w-full py-3.5 bg-blue-600 hover:bg-blue-700 text-white font-bold text-sm rounded-xl shadow-lg shadow-blue-500/20 transition-all flex justify-center items-center gap-2 group border border-blue-700"
+              className="w-full py-3.5 bg-[#0066cc] dark:bg-[#2997ff] hover:opacity-90 text-white font-medium text-[15px] rounded-full shadow-[0_2px_8px_rgba(0,102,204,0.3)] dark:shadow-[0_2px_8px_rgba(41,151,255,0.3)] transition-opacity flex justify-center items-center gap-2 group"
             >
-              <Play className="w-4 h-4 fill-white" />
+              <Play className="w-[14px] h-[14px] fill-white" />
               Convertir {pendingCount} Archivos
             </button>
           )}
@@ -391,18 +427,21 @@ export default function ImageConverter() {
             onDragLeave={(e) => { e.preventDefault(); setIsDragging(false); }}
             onDrop={(e) => { e.preventDefault(); setIsDragging(false); if (e.dataTransfer.files) handleFiles(e.dataTransfer.files); }}
             onClick={() => fileInputRef.current?.click()}
-            className={`w-full border-2 border-dashed rounded-xl flex flex-col items-center justify-center p-12 transition-all duration-300 cursor-pointer min-h-[400px]
-              ${isDragging ? "border-blue-500 bg-blue-50 dark:bg-blue-900/20 scale-[1.01]" : "border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 hover:border-blue-300 dark:hover:border-blue-600 hover:bg-zinc-50 dark:hover:bg-zinc-800/80"}
+            className={`w-full border rounded-[24px] flex flex-col items-center justify-center p-12 transition-all duration-300 cursor-pointer min-h-[400px] relative overflow-hidden group
+              ${isDragging 
+                ? "border-[#0066cc] dark:border-[#2997ff] bg-[#0066cc]/[0.02] dark:bg-[#2997ff]/[0.05] scale-[1.01]" 
+                : "border-[var(--surface-border)] bg-[var(--surface)] hover:border-black/20 dark:hover:border-white/20 hover:shadow-[0_8px_30px_rgb(0,0,0,0.04)] dark:hover:shadow-[0_8px_30px_rgb(0,0,0,0.2)]"}
             `}
           >
-            <div className="w-14 h-14 rounded-full border border-zinc-200 dark:border-zinc-700 shadow-sm flex items-center justify-center bg-white dark:bg-zinc-800 mb-5 text-blue-600 dark:text-blue-400 group-hover:scale-110 transition-transform">
-              <FileUp className="w-6 h-6" />
+
+            <div className="relative z-10 w-16 h-16 rounded-[18px] border border-[var(--surface-border)] shadow-[0_4px_12px_rgba(0,0,0,0.03)] flex items-center justify-center bg-[var(--surface)] mb-6 text-[#0066cc] dark:text-[#2997ff] group-hover:scale-105 transition-transform duration-300">
+              <FileUp className="w-7 h-7 stroke-[1.5]" />
             </div>
-            <h3 className="text-base font-bold text-zinc-900 dark:text-zinc-50 mb-1">Selecciona o arrastra imágenes aquí</h3>
-            <p className="text-sm text-zinc-500 dark:text-zinc-400 mb-6 max-w-sm text-center">
-              Ahorra gigabytes enteros usando nuestros pipelines de optimización WebP locales. Sube decenas de fotos a la vez.
+            <h3 className="relative z-10 text-[22px] font-semibold text-[var(--foreground)] mb-2 tracking-tight">Selecciona o arrastra imágenes aquí</h3>
+            <p className="relative z-10 text-[15px] font-medium text-[#86868b] dark:text-[#86868b] mb-8 max-w-md text-center">
+              Reconoce formato <b>HEIC/iOS</b>, WebP, PNG y JPG. Todo ocurre en tu propio dispositivo.
             </p>
-            <button className="px-5 py-2.5 bg-zinc-900 dark:bg-zinc-100 border hover:bg-zinc-800 dark:hover:bg-zinc-200 text-white dark:text-zinc-900 font-semibold text-xs rounded-md shadow-md transition-colors">
+            <button className="relative z-10 px-6 py-2 pb-[10px] bg-[#0066cc] dark:bg-[#2997ff] hover:opacity-90 text-white font-medium text-[15px] rounded-full shadow-[0_2px_8px_rgba(0,102,204,0.3)] dark:shadow-[0_2px_8px_rgba(41,151,255,0.3)] transition-opacity">
               Explorar Archivos
             </button>
           </div>
@@ -410,32 +449,32 @@ export default function ImageConverter() {
           <div className="flex flex-col gap-4">
             
             {/* Top Toolbar del listado */}
-            <div className="flex flex-col sm:flex-row items-center justify-between gap-4 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 p-3.5 rounded-xl shadow-sm relative xl:sticky xl:top-[88px] z-20 w-full mb-2 transition-colors">
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-4 bg-[var(--surface)] border border-[var(--surface-border)] p-4 rounded-[20px] shadow-[0_8px_30px_rgb(0,0,0,0.04)] dark:shadow-[0_8px_30px_rgb(0,0,0,0.2)] relative xl:sticky xl:top-[88px] z-20 w-full mb-3 transition-colors">
               <div className="flex items-center gap-3">
                  <button 
                   onClick={() => fileInputRef.current?.click()}
-                  className="px-4 py-2 bg-zinc-900 dark:bg-zinc-100 hover:bg-zinc-800 dark:hover:bg-white text-white dark:text-zinc-900 font-medium text-xs rounded-md shadow-sm transition-colors flex items-center gap-2"
+                  className="px-5 py-2.5 bg-[#f5f5f7] dark:bg-[#3d3d40] hover:bg-[#e8e8ed] dark:hover:bg-[#4d4d50] text-[#1d1d1f] dark:text-[#f5f5f7] font-medium text-[13px] rounded-full transition-colors flex items-center gap-2"
                  >
-                   <Layers className="w-3.5 h-3.5" /> Añadir Más Fotos
+                   <Layers className="w-4 h-4" /> Añadir Más Fotos
                  </button>
-                 <span className="text-zinc-500 dark:text-zinc-400 text-xs font-semibold border-l border-zinc-200 dark:border-zinc-800 pl-3">
-                   {doneCount} Completadas de {files.length} (Ahorro Total: {getTotalSavings()}%)
+                 <span className="text-[#86868b] text-[13px] font-medium border-l border-[var(--surface-border)] pl-4">
+                   {doneCount} Completadas de {files.length} (Ahorro: {getTotalSavings()}%)
                  </span>
               </div>
               
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-3">
                 <button 
                   onClick={() => setFiles([])}
-                  className="px-4 py-2 bg-white dark:bg-zinc-800 hover:bg-red-50 dark:hover:bg-red-950/30 text-zinc-600 dark:text-zinc-300 hover:text-red-600 dark:hover:text-red-400 border border-zinc-200 dark:border-zinc-700 font-bold text-xs rounded-md transition-all flex items-center gap-2"
+                  className="px-5 py-2.5 bg-transparent hover:bg-[#ff3b30]/10 text-[#ff3b30] border border-transparent hover:border-[#ff3b30]/30 font-medium text-[13px] rounded-full transition-all flex items-center gap-2"
                 >
                   Vaciar Todo
                 </button>
                 <button 
                   onClick={downloadAllZip}
                   disabled={doneCount === 0 || isZipping}
-                  className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 disabled:bg-zinc-100 disabled:text-zinc-400 disabled:border-zinc-200 border border-emerald-600 text-white font-bold text-xs rounded-md transition-all flex items-center gap-2"
+                  className="px-6 py-2 pb-[10px] bg-[#34c759] hover:opacity-90 disabled:bg-[var(--background)] disabled:text-[#86868b] disabled:border-[var(--surface-border)] disabled:shadow-none border border-[#34c759] text-white font-medium text-[14px] rounded-full shadow-[0_2px_8px_rgba(52,199,89,0.3)] transition-all flex items-center gap-2"
                 >
-                  {isZipping ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Archive className="w-3.5 h-3.5" />}
+                  {isZipping ? <Loader2 className="w-[14px] h-[14px] animate-spin" /> : <Archive className="w-[14px] h-[14px]" />}
                   ZIP de {doneCount} Imágenes
                 </button>
               </div>
@@ -469,13 +508,18 @@ export default function ImageConverter() {
                              <Loader2 className="w-5 h-5 animate-spin text-blue-500 dark:text-blue-400 mb-1" />
                              <span className="text-[8px] font-bold text-zinc-400 dark:text-zinc-500 tracking-widest uppercase">Procesando</span>
                            </div>
+                         ) : file.status === "decoding" ? (
+                           <div className="w-full aspect-[4/3] rounded-lg bg-zinc-50 dark:bg-zinc-800/50 flex flex-col items-center justify-center border border-zinc-100 dark:border-zinc-800 pb-1">
+                             <Loader2 className="w-5 h-5 animate-spin text-purple-500 dark:text-purple-400 mb-1" />
+                             <span className="text-[8px] font-bold text-zinc-400 dark:text-zinc-500 tracking-widest uppercase">Decodificando original...</span>
+                           </div>
                          ) : (
                            isConverted && file.optimizedUrl ? (
                              <ImageCompareSlider beforeUrl={file.originalUrl} afterUrl={file.optimizedUrl} />
                            ) : (
                               <div className="w-full aspect-[4/3] rounded-lg bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-800 flex items-center justify-center p-1 bg-[url('https://transparenttextures.com/patterns/cubes.png')] overflow-hidden shadow-inner">
                                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                                 <img src={file.originalUrl} className="max-w-full max-h-full object-contain drop-shadow-sm" alt="Original" />
+                                 {file.originalUrl && <img src={file.originalUrl} className="max-w-full max-h-full object-contain drop-shadow-sm" alt="Original" />}
                               </div>
                            )
                          )}

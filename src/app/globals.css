@@ -2,17 +2,32 @@
 
 @custom-variant dark (&:is(.dark *));
 
+@theme {
+  --font-sans: var(--font-inter);
+}
+
 :root {
-  --background: #fafafa;
-  --foreground: #09090b; /* zinc-950 */
+  --background: #fbfbfd;      /* Apple crisp light grey */
+  --foreground: #1d1d1f;      /* Apple soft readable black */
+  --sys-blue: #0066cc;
+  --surface: #ffffff;
+  --surface-border: rgba(0, 0, 0, 0.08);
+}
+
+.dark {
+  --background: #1d1d1f;      /* Apple macOS dark mode */
+  --foreground: #f5f5f7;      /* Clean near-white */
+  --sys-blue: #2997ff;
+  --surface: #2d2d2f;         /* Lifted dark surface */
+  --surface-border: rgba(255, 255, 255, 0.1);
 }
 
 body {
   color: var(--foreground);
   background: var(--background);
-  font-family: ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
   min-height: 100vh;
 }
 
