@@ -558,25 +558,25 @@ export default function ImageConverter() {
                     </div>
 
                     {/* Barra de pie: Salida y Botones locales */}
-                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between border-t border-zinc-100 pt-3 mt-auto gap-3 sm:gap-0">
+                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between border-t border-[var(--surface-border)] pt-4 mt-auto gap-3 sm:gap-0">
                        {(!isConverted) ? (
-                          <div className="text-[10px] text-zinc-500 font-bold bg-zinc-50 px-2 py-1 rounded border border-zinc-200 w-auto inline-block">Estado: Pendiente</div>
+                          <div className="text-[12px] text-[#86868b] bg-[var(--background)] font-medium px-4 py-1.5 rounded-full border border-[var(--surface-border)] shadow-[0_2px_8px_rgba(0,0,0,0.02)] w-auto inline-block">Estado: Pendiente</div>
                        ) : (
-                          <div className="flex items-center gap-1.5 bg-slate-50 px-2 py-1 rounded-md border border-slate-100">
-                            {dangerB ? <AlertTriangle className="w-3.5 h-3.5 text-amber-500" /> : <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full" />}
-                            <span className={`text-[11px] font-bold ${dangerB ? 'text-amber-600' : 'text-zinc-900'} font-mono`}>{formatSize(file.optimizedSize!)}</span>
-                            {!dangerB && <span className="text-[9px] font-bold text-emerald-600 bg-emerald-100 px-1 rounded">-{savings}%</span>}
+                          <div className="flex items-center gap-2 bg-[#34c759]/5 dark:bg-[#34c759]/10 px-3 py-1.5 rounded-full border border-[#34c759]/20">
+                            {dangerB ? <AlertTriangle className="w-[14px] h-[14px] text-[#ffcc00]" /> : <div className="w-2 h-2 bg-[#34c759] rounded-full" />}
+                            <span className={`text-[12px] font-semibold ${dangerB ? 'text-[#ffcc00]' : 'text-[#1d1d1f] dark:text-[#f5f5f7]'} font-mono`}>{formatSize(file.optimizedSize!)}</span>
+                            {!dangerB && <span className="text-[11px] font-bold text-[#34c759] bg-[#34c759]/20 px-1.5 py-0.5 rounded-md">-{savings}%</span>}
                           </div>
                        )}
 
-                       <div className="flex items-center gap-2">
+                       <div className="flex items-center gap-3 w-full sm:w-auto">
                           {!isConverted ? (
-                            <button onClick={() => processFile(file.id)} className="bg-white border border-zinc-200 hover:border-blue-500 text-zinc-800 hover:text-blue-600 hover:bg-blue-50 px-4 py-1.5 rounded-md text-[11px] font-bold transition-all shadow-sm">Procesar Ahora</button>
+                            <button onClick={() => processFile(file.id)} className="w-full sm:w-auto bg-[#f5f5f7] dark:bg-[#3d3d40] hover:bg-[#e8e8ed] dark:hover:bg-[#4d4d50] text-[#0066cc] dark:text-[#2997ff] border border-transparent px-5 py-2 rounded-full text-[13px] font-medium transition-colors">Procesar Ahora</button>
                           ) : (
                             <>
-                              <button onClick={() => updateFileSettings(file.id, {})} className="bg-zinc-100 hover:bg-zinc-200 text-zinc-600 px-3 py-1.5 rounded-md text-[10px] font-bold transition-all" title="Aplicar nuevos ajustes del panel">Refrescar</button>
-                              <a href={file.optimizedUrl} download={`${file.name.substring(0, file.name.lastIndexOf('.')) || file.name}${file.settings.suffix}.${file.settings.format.split('/')[1]}`} className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-1.5 rounded-md text-[11px] font-bold flex items-center justify-center gap-1.5 shadow-sm transition-all focus:ring-2 focus:ring-blue-500 focus:ring-offset-1">
-                                <Download className="w-3.5 h-3.5" /> Descargar
+                              <button onClick={() => updateFileSettings(file.id, {})} className="bg-[var(--background)] hover:opacity-80 text-[#86868b] px-4 py-2 rounded-full text-[12px] font-medium transition-opacity" title="Aplicar nuevos ajustes">Refrescar</button>
+                              <a href={file.optimizedUrl} download={`${file.name.substring(0, file.name.lastIndexOf('.')) || file.name}${file.settings.suffix}.${file.settings.format.split('/')[1]}`} className="flex-1 sm:flex-none bg-[#0066cc] dark:bg-[#2997ff] hover:opacity-90 text-white px-5 py-2 rounded-full text-[13px] font-medium flex items-center justify-center gap-1.5 shadow-[0_2px_8px_rgba(0,102,204,0.3)] dark:shadow-[0_2px_8px_rgba(41,151,255,0.3)] transition-opacity">
+                                <Download className="w-4 h-4" /> Descargar
                               </a>
                             </>
                           )}
