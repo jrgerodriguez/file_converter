@@ -88,18 +88,18 @@ function ImageCompareSlider({ beforeUrl, afterUrl }: { beforeUrl: string, afterU
   return (
     <div 
       ref={containerRef}
-      className="relative w-full aspect-[4/3] rounded-lg overflow-hidden cursor-ew-resize touch-none bg-[url('https://transparenttextures.com/patterns/cubes.png')] bg-zinc-100 border border-zinc-200 group"
+      className="relative w-full aspect-[4/3] rounded-lg overflow-hidden cursor-ew-resize touch-none select-none bg-[url('https://transparenttextures.com/patterns/cubes.png')] bg-zinc-50 border border-zinc-200 dark:border-zinc-800 group"
       onMouseDown={(e) => { setIsDragging(true); handleMove(e.clientX); }}
       onTouchStart={(e) => { setIsDragging(true); handleMove(e.touches[0].clientX); }}
     >
       {/* Fondo: Imagen Convertida (After) */}
       {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img src={afterUrl} alt="Optimizada" className="absolute inset-0 w-full h-full object-contain pointer-events-none p-1" />
+      <img src={afterUrl} alt="Optimizada" draggable={false} className="absolute inset-0 w-full h-full object-contain pointer-events-none p-1 select-none" />
       
       {/* Frente: Imagen Original (Before) */}
       <div className="absolute inset-0 z-10" style={{ clipPath: `inset(0 ${100 - sliderPosition}% 0 0)` }}>
          {/* eslint-disable-next-line @next/next/no-img-element */}
-         <img src={beforeUrl} alt="Original" className="absolute inset-0 w-full h-full object-contain pointer-events-none p-1" />
+         <img src={beforeUrl} alt="Original" draggable={false} className="absolute inset-0 w-full h-full object-contain pointer-events-none p-1 select-none" />
       </div>
 
       {/* Etiquetas compactas técnicas */}
@@ -112,8 +112,8 @@ function ImageCompareSlider({ beforeUrl, afterUrl }: { beforeUrl: string, afterU
 
       {/* Línea Divisoria Interactiva Fina */}
       <div 
-        className="absolute top-0 bottom-0 w-[1px] bg-white cursor-ew-resize z-20 shadow-[0_0_5px_rgba(0,0,0,0.5)] pointer-events-none"
-        style={{ left: `calc(${sliderPosition}% - 0.5px)` }}
+        className="absolute top-0 bottom-0 w-[1.5px] bg-white cursor-ew-resize z-20 pointer-events-none shadow-sm"
+        style={{ left: `calc(${sliderPosition}% - 0.75px)` }}
       >
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-6 h-6 bg-white rounded-full flex items-center justify-center shadow-md border border-zinc-200 pointer-events-auto">
           <ArrowLeftRight className="w-3 h-3 text-zinc-600" />
@@ -481,7 +481,7 @@ export default function ImageConverter() {
             </div>
 
             {/* Listado de Archivos en Grilla Densa */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
               {files.map((file) => {
                 const isConverted = file.status === "done";
                 const formatLabel = file.settings.format.split('/')[1].toUpperCase();
@@ -500,9 +500,9 @@ export default function ImageConverter() {
                       </button>
                     </div>
 
-                    {/* Fila Dividida: Preview Izq, Controles Der */}
-                    <div className="flex flex-col sm:flex-row gap-5 mb-4">
-                       <div className="w-full sm:w-44 shrink-0 flex items-center justify-center mx-auto">
+                    {/* Fila Dividida: Vista superior (Preview enorme), Controles abajo */}
+                    <div className="flex flex-col gap-4 mb-4">
+                       <div className="w-full sm:w-4/5 max-w-[400px] flex items-center justify-center mx-auto">
                          {file.status === "processing" ? (
                            <div className="w-full aspect-[4/3] rounded-lg bg-zinc-50 dark:bg-zinc-800/50 flex flex-col items-center justify-center border border-zinc-100 dark:border-zinc-800 pb-1">
                              <Loader2 className="w-5 h-5 animate-spin text-blue-500 dark:text-blue-400 mb-1" />
@@ -517,41 +517,46 @@ export default function ImageConverter() {
                            isConverted && file.optimizedUrl ? (
                              <ImageCompareSlider beforeUrl={file.originalUrl} afterUrl={file.optimizedUrl} />
                            ) : (
-                              <div className="w-full aspect-[4/3] rounded-lg bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-800 flex items-center justify-center p-1 bg-[url('https://transparenttextures.com/patterns/cubes.png')] overflow-hidden shadow-inner">
+                              <div className="w-full aspect-[4/3] rounded-lg bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-800 flex items-center justify-center p-1 bg-[url('https://transparenttextures.com/patterns/cubes.png')] overflow-hidden">
                                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                                 {file.originalUrl && <img src={file.originalUrl} className="max-w-full max-h-full object-contain drop-shadow-sm" alt="Original" />}
+                                 {file.originalUrl && <img src={file.originalUrl} className="max-w-full max-h-full object-contain select-none" draggable={false} alt="Original" />}
                               </div>
                            )
                          )}
                        </div>
 
-                       <div className="flex-1 flex flex-col justify-center sm:border-l border-t sm:border-t-0 border-zinc-100 pt-3 sm:pt-0 pl-0 sm:pl-4 space-y-2.5">
-                          <select value={file.settings.format} onChange={e => updateFileSettings(file.id, {format: e.target.value as any})} className="w-full bg-zinc-50 border border-zinc-200 text-zinc-700 text-[10px] font-bold rounded px-2 py-1 outline-none hover:bg-white hover:border-blue-400 transition-colors">
-                            <option value="image/webp">A WebP</option>
-                            <option value="image/jpeg">A JPEG</option>
-                            <option value="image/png">A PNG</option>
-                          </select>
+                       <div className="flex-1 flex flex-col gap-3 border-t border-zinc-100 dark:border-zinc-800 pt-4 px-1">
                           
-                          <select value={file.settings.resizeMode} onChange={e => updateFileSettings(file.id, {resizeMode: e.target.value as any})} className="w-full bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-zinc-700 dark:text-zinc-300 text-[10px] font-bold rounded px-2 py-1 outline-none hover:bg-white dark:hover:bg-zinc-700 hover:border-blue-400 transition-colors">
-                            <option value="original">Original</option>
-                            <option value="1080p">A 1080p Max</option>
-                            <option value="720p">A 720p Max</option>
-                            <option value="custom">Personalizado</option>
-                          </select>
+                          <div className="grid grid-cols-2 gap-3">
+                            <select value={file.settings.format} onChange={e => updateFileSettings(file.id, {format: e.target.value as any})} className="w-full bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-zinc-700 dark:text-zinc-300 text-[11px] font-bold rounded-lg px-2 py-2 outline-none hover:bg-white dark:hover:bg-zinc-700 hover:border-blue-400 transition-colors shadow-sm">
+                              <option value="image/webp">A WebP</option>
+                              <option value="image/jpeg">A JPEG</option>
+                              <option value="image/png">A PNG</option>
+                            </select>
+                            
+                            <div className="flex flex-col gap-1.5 focus-within:z-10">
+                              <select value={file.settings.resizeMode} onChange={e => updateFileSettings(file.id, {resizeMode: e.target.value as any})} className="w-full bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-zinc-700 dark:text-zinc-300 text-[11px] font-bold rounded-lg px-2 py-2 outline-none hover:bg-white dark:hover:bg-zinc-700 hover:border-blue-400 transition-colors shadow-sm">
+                                <option value="original">Original</option>
+                                <option value="1080p">A 1080p Max</option>
+                                <option value="720p">A 720p Max</option>
+                                <option value="custom">Personalizado</option>
+                              </select>
+                            </div>
+                          </div>
                           
                           {file.settings.resizeMode === 'custom' && (
-                             <div className="flex gap-1">
-                               <input type="number" placeholder="Ancho px" value={file.settings.customWidth || ''} onChange={e => updateFileSettings(file.id, {customWidth: Number(e.target.value)})} className="w-1/2 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-zinc-700 dark:text-zinc-300 text-[10px] font-bold rounded px-2 py-1 outline-none focus:border-blue-400" />
-                               <input type="number" placeholder="Alto px" value={file.settings.customHeight || ''} onChange={e => updateFileSettings(file.id, {customHeight: Number(e.target.value)})} className="w-1/2 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-zinc-700 dark:text-zinc-300 text-[10px] font-bold rounded px-2 py-1 outline-none focus:border-blue-400" />
+                             <div className="flex gap-2">
+                               <input type="number" placeholder="Ancho px" value={file.settings.customWidth || ''} onChange={e => updateFileSettings(file.id, {customWidth: Number(e.target.value)})} className="w-1/2 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-zinc-700 dark:text-zinc-300 text-[10px] font-bold rounded-md px-2 py-1.5 outline-none focus:border-blue-400" />
+                               <input type="number" placeholder="Alto px" value={file.settings.customHeight || ''} onChange={e => updateFileSettings(file.id, {customHeight: Number(e.target.value)})} className="w-1/2 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-zinc-700 dark:text-zinc-300 text-[10px] font-bold rounded-md px-2 py-1.5 outline-none focus:border-blue-400" />
                              </div>
                           )}
 
-                          <div className="flex items-center gap-2">
-                             <span className={`text-[9px] font-extrabold uppercase w-7 tracking-wider ${file.settings.format === 'image/png' ? 'text-zinc-400' : 'text-blue-600'}`}>QLTY</span>
+                          <div className="flex items-center gap-3 h-full bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-lg px-3 py-2 shadow-sm">
+                             <span className={`text-[10px] font-extrabold uppercase w-10 tracking-wider flex-shrink-0 ${file.settings.format === 'image/png' ? 'text-zinc-400' : 'text-blue-600 dark:text-blue-400'}`}>QLTY {file.settings.format !== 'image/png' && `${file.settings.quality}`}</span>
                              {file.settings.format === 'image/png' ? (
-                               <span className="text-[9px] text-zinc-400 font-medium">No soportado en PNG</span>
+                               <span className="text-[10px] text-zinc-400 font-medium">No soportado</span>
                              ) : (
-                               <input type="range" min="1" max="100" value={file.settings.quality} onChange={e => updateFileSettings(file.id, {quality: parseInt(e.target.value, 10)})} className="flex-1 accent-blue-600 h-1.5 bg-zinc-200 rounded-lg appearance-none cursor-pointer" />
+                               <input type="range" min="1" max="100" value={file.settings.quality} onChange={e => updateFileSettings(file.id, {quality: parseInt(e.target.value, 10)})} className="flex-1 w-full accent-blue-600 dark:accent-blue-500 h-1.5 bg-zinc-200 dark:bg-zinc-600 rounded-lg appearance-none cursor-pointer" />
                              )}
                           </div>
                        </div>
